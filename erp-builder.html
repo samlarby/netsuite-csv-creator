@@ -2,30 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ERP Upload Builder (2× CSV Uploads)</title>
+<title>ERP Upload Builder (Matrix + FFill)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root{--bg:#0f1115;--panel:#171923;--muted:#8b8fa6;--text:#eef0ff;--accent:#7c9cff;--accent2:#4ade80;--danger:#f87171;--border:#24283a}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Inter,Arial}
-  header{padding:24px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#111321,#0f1115)} h1{margin:0;font-size:20px}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Inter,Arial}
+  header{padding:24px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#111321,#0f1115)}
+  h1{margin:0;font-size:20px}
   .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
-  .grid{display:grid;gap:16px;grid-template-columns:1fr} @media(min-width:980px){.grid{grid-template-columns:1fr 1fr}}
+  .grid{display:grid;gap:16px;grid-template-columns:1fr}
+  @media(min-width:980px){.grid{grid-template-columns:1fr 1fr}}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
   label{display:block;margin:0 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12px}
   input[type=file], select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0b0d13;color:var(--text)}
-  .hint{color:var(--muted);font-size:12px;margin-top:6px} .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   button{background:var(--accent);border:none;color:#0b0d13;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer}
-  button.secondary{background:#252a3f;color:var(--text)}
-  .ok{color:var(--accent2)} .err{color:var(--danger)} .pill{display:inline-block;background:#1d2133;border:1px solid var(--border);padding:2px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
-  table{width:100%;border-collapse:collapse;font-size:12px} th,td{border-bottom:1px solid var(--border);padding:8px;vertical-align:top} th{text-align:left;color:var(--muted)}
+  .ok{color:var(--accent2)}
+  .err{color:var(--danger)}
+  .pill{display:inline-block;background:#1d2133;border:1px solid var(--border);padding:2px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid var(--border);padding:8px;vertical-align:top}
+  th{text-align:left;color:var(--muted)}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   details{background:#101424;border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--muted)}
 </style>
 </head>
+
 <body>
 <header class="wrap">
-  <h1>🧩 ERP Upload Builder — strict <span class="pill">NAME ↔ STYLE CODE</span></h1>
-  <div class="hint">Upload <b>names_and_descriptions.csv</b> and <b>range_tracker.csv</b> (CSV UTF-8). Click Generate to download <b>erp_upload.csv</b>.</div>
+  <h1>🧩 ERP Upload Builder — <span class="pill">NAME ↔ STYLE CODE</span></h1>
+  <div class="hint">Upload <b>names_and_descriptions.csv</b> and <b>range_tracker.csv</b>. Click Generate to download <b>erp_upload.csv</b>.</div>
 </header>
 
 <div class="wrap">
@@ -33,14 +41,14 @@
     <div class="card">
       <label>1) Upload Names & Descriptions (CSV/TSV)</label>
       <input id="namesFile" type="file" accept=".csv,.tsv,.txt" />
-      <div class="hint">Required columns (case-insensitive): <span class="mono">NAME, SKU, SIZE, HS Code, EAN</span>. Optional: <span class="mono">COO, RRP, DESCRIPTION</span></div>
-      <div class="hint">Join key: <b>NAME</b> (left) → <b>STYLE CODE</b> (right)</div>
+      <div class="hint">Needs: <span class="mono">NAME, SKU, SIZE, HS Code, EAN</span> (NAME may be blank on size rows — we will forward-fill it)</div>
       <div id="namesStatus" class="hint"></div>
     </div>
+
     <div class="card">
       <label>2) Upload Range Tracker (CSV/TSV)</label>
       <input id="trackerFile" type="file" accept=".csv,.tsv,.txt" />
-      <div class="hint">Required columns: <span class="mono">STYLE CODE, Line Description, COO, Sell Price</span></div>
+      <div class="hint">Needs: <span class="mono">STYLE CODE, Line Description, COO, Sell Price</span></div>
       <div id="trackerStatus" class="hint"></div>
     </div>
   </div>
@@ -48,9 +56,13 @@
   <div class="card" style="margin-top:16px">
     <div class="row">
       <button id="genBtn">🚀 Generate ERP CSV</button>
+      <label style="text-transform:none">
+        <input type="checkbox" id="makeParents" checked />
+        Also create <b>Matrix Parent</b> rows
+      </label>
       <a id="dlLink" download="erp_upload.csv" class="pill" style="display:none">⬇️ Download erp_upload.csv</a>
-      <span id="log" class="hint"></span>
     </div>
+    <div id="log" class="hint"></div>
     <details style="margin-top:10px">
       <summary>Match diagnostics</summary>
       <div id="diag" class="hint" style="margin-top:8px"></div>
@@ -61,10 +73,6 @@
     <label>Preview (first 20 rows)</label>
     <div style="overflow:auto"><table id="previewTable"></table></div>
   </div>
-
-  <div class="hint" style="margin-top:10px">
-    Logic: strict <b>INNER JOIN</b> on <span class="mono">NAME (names CSV)</span> = <span class="mono">STYLE CODE (tracker CSV)</span>. Rows without <b>SKU</b> are ignored.
-  </div>
 </div>
 
 <script>
@@ -72,214 +80,340 @@
 const byId = id => document.getElementById(id);
 const clean = s => (s??"").toString().replace(/\u00A0/g,' ').normalize("NFKC").trim();
 const cleanKey = s => clean(s).replace(/[‐–—−]/g,'-').replace(/\s+/g,' ').toUpperCase();
+  
+function parentFromSku(sku){
+  // Trim, remove leading P/R/T, strip trailing digits, tidy up any separators
+  return clean(sku)
+    .replace(/^[PRT]/i, '')   // remove Petite / Regular / Tall prefix
+    .replace(/\d+$/, '')      // remove trailing number
+    .replace(/[ _-]$/, '');   // tidy trailing dash/underscore
+}
 
-/* detect delimiter & parse CSV/TSV (quote-aware enough for commas/tabs) */
-function parseTable(text){
-  text = text.trim(); if(!text) return [];
-  let delim = '\t';
-  const count = ch => (text.match(new RegExp(ch,'g'))||[]).length;
-  const comma=count(','), tab=count('\t'), semi=count(';');
-  if (comma>tab && comma>semi) delim=','; else if (semi>tab && semi>comma) delim=';';
-  const rows=[]; let i=0, field='', row=[], inQ=false, c, prev=null;
-  while(i<text.length){
-    c=text[i++]; if(c=='"'){ if(inQ && text[i]=='"'){field+='"'; i++;} else inQ=!inQ; }
-    else if(c===delim && !inQ){ row.push(field); field=''; }
-    else if((c=='\n'||c=='\r') && !inQ){ if(prev=='\r' && c=='\n'){prev=c; continue;} row.push(field); field=''; rows.push(row); row=[]; }
-    else { field+=c; } prev=c;
+
+/* find a header by candidate names (case-insensitive/loose) */
+function findHeader(rows, candidates){
+  if(!rows.length) return null;
+  const headers = Object.keys(rows[0]);
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g,'');
+  for(const cand of candidates){
+    const want = norm(cand);
+    for(const h of headers){ const n=norm(h); if(n===want || n.includes(want)) return h; }
   }
-  if(field.length||row.length){row.push(field); rows.push(row);}
-  const header=(rows.shift()||[]).map(h=>clean(h));
-  return rows.filter(r=>r.some(x=>clean(x)!=='')).map(r=>{
-    const o={}; header.forEach((h,i)=>o[h]=clean(r[i]??'')); return o;
+  return null;
+}
+
+// Strip a trailing variant like " (PETITE)" / " (REGULAR)" / " (TALL)" etc.
+function stripVariantSuffix(name){
+  const s = clean(name);
+  // remove one trailing parenthetical e.g. "NAME (PETITE)" -> "NAME"
+  return s.replace(/\s*\([^)]+\)\s*$/,'').trim();
+}
+
+// Return the variant label from NAME if present; e.g. "(PETITE)" -> "PETITE"
+function variantFromName(name){
+  const m = clean(name).match(/\(([^)]+)\)\s*$/);
+  return m ? m[1].trim().toUpperCase() : "";
+}
+
+
+/* forward-fill a column so every row has a value (handles merged cells exported from Excel) */
+function ffillColumn(rows, col){
+  if(!col) return;
+  let last="";
+  for(const r of rows){
+    const v = clean(r[col]);
+    if(v){ last=v; r[col]=v; } else { r[col]=last; }
+  }
+}
+
+/* parse CSV or TSV automatically (simple but works for Excel CSV/TSV) */
+  // --- REPLACE your parseTable with this one ---
+  function parseTable(text){
+    text = (text||"").trim();
+    if (!text) return [];
+
+    // detect delimiter from header line only (prefer tab if present)
+    const firstLine = text.split(/\r?\n/, 1)[0];
+    let delim = '\t';
+    const tabCount = (firstLine.match(/\t/g)||[]).length;
+    const commaCount = (firstLine.match(/,/g)||[]).length;
+    const semiCount = (firstLine.match(/;/g)||[]).length;
+    if (tabCount > 0) delim = '\t';
+    else if (commaCount >= semiCount) delim = ',';
+    else delim = ';';
+
+    // quote-aware parse
+    const rows = [];
+    let row = [], field = "", i = 0, inQ = false;
+    const n = text.length;
+    while (i < n){
+      const c = text[i++];
+      if (c === '"'){
+        if (inQ && text[i] === '"'){ field += '"'; i++; } // escaped quote
+        else inQ = !inQ;
+      } else if (c === delim && !inQ){
+        row.push(field); field = "";
+      } else if ((c === '\n' || c === '\r') && !inQ){
+        // handle CRLF
+        if (c === '\r' && text[i] === '\n') i++;
+        row.push(field); field = "";
+        if (row.length) rows.push(row);
+        row = [];
+      } else {
+        field += c;
+      }
+    }
+    if (field.length || row.length){ row.push(field); rows.push(row); }
+
+    if (!rows.length) return [];
+
+    const header = rows.shift().map(h => clean(h));
+    return rows
+      .filter(r => r.some(x => clean(x) !== ""))
+      .map(r => {
+        const o = {};
+        header.forEach((h, idx) => { o[h] = clean(r[idx] ?? ""); });
+        return o;
+      });
+  }
+
+
+function readFileAsText(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(fr.error);
+    fr.onload=()=>res(fr.result);
+    fr.readAsText(file);
   });
 }
-function readFileAsText(file){
-  return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onerror=()=>rej(fr.error); fr.onload=()=>res(fr.result); fr.readAsText(file); });
-}
+
 function toCSV(rows){
   if(!rows.length) return '';
   const headers=Object.keys(rows[0]);
   const esc=v=>{const s=(v==null?'':String(v)); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
-  const lines=[headers.map(esc).join(',')]; for(const r of rows) lines.push(headers.map(h=>esc(r[h])).join(','));
-  return '\uFEFF'+lines.join('\n'); // BOM for Excel
+  const lines=[headers.map(esc).join(',')];
+  for(const r of rows) lines.push(headers.map(h=>esc(r[h])).join(','));
+  return '\uFEFF'+lines.join('\n');
 }
-function categoryFrom(text){
-  const t=(text||'').toLowerCase();
-  if (/(bag|tote|purse)/.test(t)) return "SistersandSeekers : Accessories : Accessories : Bags";
-  if (/(blazer|jacket|cardi|coat|mac)/.test(t)) return "SistersandSeekers : Clothing : Outerwear : Blazers";
-  if (/(trouser|pant|legging|jean)/.test(t)) return "SistersandSeekers : Clothing : Bottoms : Trousers";
-  if (/(jumper|sweater|knit|hoodie)/.test(t)) return "SistersandSeekers : Clothing : Knitwear : Tops";
-  if (/(top|tee|shirt|polo|longsleeve)/.test(t)) return "SistersandSeekers : Clothing : Tops : Tees";
-  if (/(sock|tight|hosiery)/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hosiery";
-  return "SistersandSeekers : Clothing : General";
-}
-function eanAsStr(s){
-  s=clean(s); if(!s) return "";
-  if(/^\d+\.0$/.test(s)) return s.slice(0,-2);
-  // avoid scientific: let it pass as plain string
-  return s;
-}
-/* header mapping helper */
-function mapHeader(rows, candidates){
-  if(!rows.length) return null;
-  const headers=Object.keys(rows[0]); const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
-  const lut={}; headers.forEach(h=>lut[norm(h)]=h);
-  for(const cand of candidates){
-    const k=norm(cand);
-    if(lut[k]) return lut[k];
-    for(const h of headers){ if(norm(h).includes(k)) return h; }
-  }
-  return null;
+
+function categoryFrom(t){
+  t=(t||'').toLowerCase();
+  if(/bag|purse|tote/.test(t)) return "SistersandSeekers : Accessories : Accessories : Bags";
+  if(/hat|hats/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hats";
+  if(/blazer|jacket|coat/.test(t)) return "SistersandSeekers : Clothing : Outerwear : Blazers";
+  if(/trouser|pant|jean/.test(t)) return "SistersandSeekers : Clothing : Bottoms : Trousers";
+  if(/hoodie|sweater|jumper|cardi/.test(t)) return "SistersandSeekers : Clothing : Knitwear : Tops";
+  if(/top|tee|shirt|polo|longsleeve/.test(t)) return "SistersandSeekers : Clothing : Tops : Tees";
+  if(/sock|tight|hosiery/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hosiery";
+  return "SistersandSeekers: Accessories: Accessories: Accessories Other";
 }
 
 /* ---------- state ---------- */
 let namesRows=[], trackerRows=[];
 
 byId('namesFile').addEventListener('change', async e=>{
-  const f=e.target.files[0]; namesRows=[]; byId('dlLink').style.display='none'; byId('previewCard').style.display='none';
-  if(!f){ byId('namesStatus').textContent=''; return; }
-  try{ const txt=await readFileAsText(f); namesRows=parseTable(txt);
-       byId('namesStatus').innerHTML=`Loaded <span class="ok">${namesRows.length}</span> rows`; }
-  catch(err){ byId('namesStatus').innerHTML=`<span class="err">Failed to read file: ${err}</span>`; }
+  const f=e.target.files[0]; if(!f) return;
+  const txt=await readFileAsText(f);
+  namesRows=parseTable(txt);
+
+  // forward-fill NAME so every size row has the style name
+  const NAMECOL = findHeader(namesRows, ["NAME"]);
+  ffillColumn(namesRows, NAMECOL);
+  
+  // NEW: forward-fill HS Code as well
+  const HSCOL = findHeader(namesRows, ["HS Code","HSCode"]);   // NEW
+  ffillColumn(namesRows, HSCOL);                                // NEW
+
+
+  byId('namesStatus').innerHTML=`Loaded <span class="ok">${namesRows.length}</span> rows (NAME & HS forward-filled)`;
 });
+
 byId('trackerFile').addEventListener('change', async e=>{
-  const f=e.target.files[0]; trackerRows=[]; byId('dlLink').style.display='none'; byId('previewCard').style.display='none';
-  if(!f){ byId('trackerStatus').textContent=''; return; }
-  try{ const txt=await readFileAsText(f); trackerRows=parseTable(txt);
-       byId('trackerStatus').innerHTML=`Loaded <span class="ok">${trackerRows.length}</span> rows`; }
-  catch(err){ byId('trackerStatus').innerHTML=`<span class="err">Failed to read file: ${err}</span>`; }
+  const f=e.target.files[0]; if(!f) return;
+  const txt=await readFileAsText(f);
+  trackerRows=parseTable(txt);
+  byId('trackerStatus').innerHTML=`Loaded <span class="ok">${trackerRows.length}</span> rows`;
 });
 
 /* ---------- main generate ---------- */
 byId('genBtn').addEventListener('click', ()=>{
-  byId('dlLink').style.display='none'; byId('previewCard').style.display='none'; byId('diag').innerHTML=''; byId('log').textContent='';
-  if(!namesRows.length){ byId('log').innerHTML='<span class="err">Upload the Names CSV first.</span>'; return; }
-  if(!trackerRows.length){ byId('log').innerHTML='<span class="err">Upload the Range Tracker CSV first.</span>'; return; }
+  byId('dlLink').style.display='none'; byId('previewCard').style.display='none';
+  if(!namesRows.length || !trackerRows.length){
+    byId('log').innerHTML='<span class="err">Please upload both CSV files first.</span>';
+    return;
+  }
 
-  // map headers
-  const NAME = mapHeader(namesRows, ["NAME"]);
-  const SKU  = mapHeader(namesRows, ["SKU"]);
-  const SIZE = mapHeader(namesRows, ["SIZE"]);
-  const HS   = mapHeader(namesRows, ["HS Code","HSCode"]);
-  const EAN  = mapHeader(namesRows, ["EAN","UPC"]);
-  const COO1 = mapHeader(namesRows, ["COO"]);
-  const RRP1 = mapHeader(namesRows, ["RRP","Sell Price","Retail"]);
-  const DESC1= mapHeader(namesRows, ["DESCRIPTION","DETAILS"]);
+  // map flexible headers
+  const NAME = findHeader(namesRows, ["NAME"]);
+  const SKU  = findHeader(namesRows, ["SKU"]);
+  const SIZE = findHeader(namesRows, ["SIZE"]);
+  const HS   = findHeader(namesRows, ["HS Code","HSCode"]);
+  const EAN  = findHeader(namesRows, ["EAN","UPC"]);
+  const COO1 = findHeader(namesRows, ["COO"]);
+  const RRP1 = findHeader(namesRows, ["RRP","Sell Price","Retail"]);
+  const DESC1= findHeader(namesRows, ["DESCRIPTION","DETAILS","NAME"]);
 
-  const STYLE2 = mapHeader(trackerRows, ["STYLE CODE","STYLE"]);
-  const DESC2  = mapHeader(trackerRows, ["Line Description","Description","Name"]);
-  const COO2   = mapHeader(trackerRows, ["COO","Country of Origin"]);
-  const PRICE2 = mapHeader(trackerRows, ["Sell Price","RRP","Retail","Retail Price","Price"]);
+  const STYLE2 = findHeader(trackerRows, ["STYLE CODE","STYLE"]);
+  const DESC2  = findHeader(trackerRows, ["Line Description","Description","Name"]);
+  const COO2   = findHeader(trackerRows, ["COO","Country of Origin"]);
+  const PRICE2 = findHeader(trackerRows, ["Sell Price","RRP","Retail","Retail Price","Price"]);
 
   if(!NAME || !SKU){ byId('log').innerHTML=`<span class="err">Missing NAME or SKU in Names CSV.</span>`; return; }
   if(!STYLE2){ byId('log').innerHTML=`<span class="err">Missing STYLE CODE in Tracker CSV.</span>`; return; }
 
-  // build index for tracker by STYLE CODE (cleaned)
-  const tIndex=new Map(), rightKeys=new Set();
+  // index tracker by STYLE CODE (both raw and base-without-variant)
+  const tIndex = new Map(), rightKeys = new Set();
   for(const r of trackerRows){
-    const key=cleanKey(r[STYLE2]); if(!key) continue;
-    tIndex.set(key,r); rightKeys.add(key);
+    const raw = cleanKey(r[STYLE2]);
+    const base = cleanKey(stripVariantSuffix(r[STYLE2]));
+    if(raw){ tIndex.set(raw, r); rightKeys.add(raw); }
+    if(base){ tIndex.set(base, r); rightKeys.add(base); }
   }
 
-  // compute left keys, diagnostics
-  const leftKeys=new Set(), leftNoSku=new Set();
-  for(const r of namesRows){
-    const sku=clean(r[SKU]); const key=cleanKey(r[NAME]);
-    if(key) leftKeys.add(key); if(!sku) leftNoSku.add(key);
-  }
+
+  // diagnostics
+  const leftKeys=new Set();
+  for(const r of namesRows){ const k=cleanKey(r[NAME]); if(k) leftKeys.add(k); }
   const leftOnly=[...leftKeys].filter(k=>!rightKeys.has(k));
   const rightOnly=[...rightKeys].filter(k=>!leftKeys.has(k));
-
   byId('diag').innerHTML =
-    `Left keys (unique): ${leftKeys.size} · Right keys (unique): ${rightKeys.size}<br>`+
-    `Left-only (no tracker match): ${leftOnly.length} ${leftOnly.length? 'e.g. '+leftOnly.slice(0,5).join(', ') : ''}<br>`+
-    `Right-only (not in names): ${rightOnly.length} ${rightOnly.length? 'e.g. '+rightOnly.slice(0,5).join(', ') : ''}`;
+    `Left keys: ${leftKeys.size} · Right keys: ${rightKeys.size}<br>`+
+    `Left-only: ${leftOnly.length} ${leftOnly.length? 'e.g. '+leftOnly.slice(0,5).join(', ') : ''}<br>`+
+    `Right-only: ${rightOnly.length} ${rightOnly.length? 'e.g. '+rightOnly.slice(0,5).join(', ') : ''}`;
 
-  // strict inner join + skip rows without SKU
-  const out=[]; let kept=0, skipped=0, missing=0;
+  // build output (strict inner join; skip rows lacking SKU)
+  const out=[];
+  let kept=0, skipped=0, missing=0;
+
   for(const r of namesRows){
-    const sku=clean(r[SKU]); if(!sku){ skipped++; continue; }
-    const key=cleanKey(r[NAME]); if(!key){ skipped++; continue; }
-    const t=tIndex.get(key); if(!t){ missing++; continue; }
+    const sku  = clean(r[SKU]);
+    const name = clean(r[NAME]);
+    if(!sku || !name){ skipped++; continue; }
 
-    const size=clean(r[SIZE]);
-    const ean=eanAsStr(r[EAN]);
-    const hs=clean(r[HS]);
-    const coo=clean(t[COO2] || r[COO1]);
-    const price=clean(t[PRICE2] || r[RRP1]);
-    const baseName=clean(r[NAME]);
-    const descTxt=clean(t[DESC2] || r[DESC1] || baseName);
-    const partDesc = (size && size.toUpperCase()!=='ONE SIZE') ? `${descTxt} ${size}` : (descTxt || baseName);
-    const category = categoryFrom(descTxt || baseName);
-    const parentMatrix = size ? sku.replace(/\d+$/,'').replace(/[ _-]$/,'') : "";
+    // 1) Try exact match on NAME
+    let t = tIndex.get(cleanKey(name));
+
+    // 2) Fallback: match on base style without "(PETITE)/(REGULAR)/(TALL)"
+    if(!t){
+      const baseName = stripVariantSuffix(name);
+      t = tIndex.get(cleanKey(baseName));
+    }
+    if(!t){ missing++; continue; }
+
+    const size = clean(r[SIZE]);
+    const ean  = clean(r[EAN]);
+    const hs   = clean(r[HS]);
+    const coo  = clean(t[COO2] || r[COO1]);
+    const price= clean(t[PRICE2] || r[RRP1]);
+
+    // Prefer the tracker line description; fallback to base name (without variant)
+    const baseName = stripVariantSuffix(name);
+    const desc = clean(t[DESC2] || r[DESC1] || baseName);
+
+    // Extract variant label (PETITE/REGULAR/TALL) from names file
+    const variant = variantFromName(name);  // "" if none
+
+    const partDesc = size && size.toUpperCase()!=="ONE SIZE" ? `${desc} ${size}` : desc;
+    const parentMatrix = size ? parentFromSku(sku) : "";
+    const category = categoryFrom(desc);
 
     out.push({
       "externalid": sku,
       "PartNumber": sku,
       "PartDescription": partDesc,
-      "DisplayName": baseName,
+      "DisplayName": desc,
       "Merchandise Hierarchy": category,
       "HSCode": hs,
       "CountryOfManufacture": coo,
       "UPC": ean,
       "unit type": "Each",
-      "stock unit - pair/pack/": "",
-      "purchase unit pair/pack": "",
-      "Sales unit pair/pack": "",
       "subsid": "Sisters & Seekers Limited",
       "Class": "Product",
       "Department": "SSUK Warehouse : SSUK - Ecomm",
-      "Location": "",
-      "children true/false": "",
-      "salesDescription": partDesc,
       "Sale Price": price,
       "Item - Pricing 1 : Currency (Req)": "GBP",
       "Item - Pricing 1 : Price Level (Req)": "RRP",
-      "Item - Pricing 1 : Quantity (Req)": "",
       "costing method": "FIFO",
-      "Cost": "",
-      "Drop Ship": "",
-      "spec order true/false": "",
-      "OrderUp toLevel": "",
-      "re-order multi": "",
-      "reordeer": "",
-      "Vendor": "",
-      "Prefered Vendor": "",
-      "Purchase price": "",
       "cogsaccount": "50000 Cost of Goods Sold",
       "incomeaccount": "40001 Sales : Shopify Sales",
       "assetaccount": "12030 Inventory : Finished Goods",
-      "purchasetaxcocde": "",
+
+      // Matrix fields
       "Matrix Type": size ? "Child Matrix Item" : "Standalone Item",
       "Parent Matrix item": parentMatrix,
-      "Matrix - Colour": "",
+      // Use Matrix - Colour as the second dimension to carry PETITE/REGULAR/TALL
+      "Matrix - Colour": variant,           // e.g., "PETITE", "REGULAR", "TALL" or ""
       "Matrix Size": size
     });
     kept++;
   }
 
-  byId('log').innerHTML = `Matched: <span class="ok">${kept}</span> · Skipped (no SKU/NAME): ${skipped} · No tracker match: ${missing}`;
 
-  if(!out.length){ byId('dlLink').style.display='none'; byId('previewCard').style.display='none'; return; }
+  // add Matrix Parent rows if requested
+  if(byId('makeParents').checked){
+    const groups = new Map();
+    for(const r of out){
+      const parent = r["Parent Matrix item"];
+      const sz = (r["Matrix Size"]||"").toUpperCase();
+      if(!parent || sz==="ONE SIZE") continue;
+      if(!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push(r);
+    }
+    for(const [parentCode, kids] of groups.entries()){
+      const k0 = kids[0];
+      out.push({
+        "externalid": parentCode,
+        "PartNumber": parentCode,
+        "PartDescription": k0["DisplayName"],
+        "DisplayName": k0["DisplayName"],
+        "Merchandise Hierarchy": k0["Merchandise Hierarchy"],
+        "HSCode": k0["HSCode"],
+        "CountryOfManufacture": k0["CountryOfManufacture"],
+        "UPC": "",
+        "unit type": "Each",
+        "subsid": "Sisters & Seekers Limited",
+        "Class": "Product",
+        "Department": "SSUK Warehouse : SSUK - Ecomm",
+        "Sale Price": k0["Sale Price"],
+        "Item - Pricing 1 : Currency (Req)": "GBP",
+        "Item - Pricing 1 : Price Level (Req)": "RRP",
+        "costing method": "FIFO",
+        "cogsaccount": "50000 Cost of Goods Sold",
+        "incomeaccount": "40001 Sales : Shopify Sales",
+        "assetaccount": "12030 Inventory : Finished Goods",
+        "Matrix Type": "Parent Matrix Item",
+        "Parent Matrix item": "",
+        "Matrix - Colour": "",
+        "Matrix Size": ""
+      });
+    }
+  }
 
-  // preview
-  const preview=out.slice(0,20), tbl=byId('previewTable');
-  tbl.innerHTML=''; const headers=Object.keys(preview[0]);
-  const thead=document.createElement('thead'), trh=document.createElement('tr');
-  headers.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
-  thead.appendChild(trh); tbl.appendChild(thead);
-  const tb=document.createElement('tbody');
-  preview.forEach(r=>{ const tr=document.createElement('tr');
-    headers.forEach(h=>{ const td=document.createElement('td'); td.textContent=r[h]??""; tr.appendChild(td); });
-    tb.appendChild(tr);
-  });
-  tbl.appendChild(tb); byId('previewCard').style.display='block';
+  // show preview + download
+  const csv = toCSV(out);
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const dl = byId('dlLink');
+  dl.href = url;
+  dl.style.display = 'inline-block';
+  byId('log').innerHTML = `✅ ${out.length} rows ready (kept ${kept}, skipped ${skipped}, no match ${missing}).`;
 
-  // download
-  const csv=toCSV(out), blob=new Blob([csv],{type:"text/csv;charset=utf-8"}), url=URL.createObjectURL(blob);
-  const dl=byId('dlLink'); dl.href=url; dl.style.display='inline-block';
+  const preview = out.slice(0,20);
+  const tbl = byId('previewTable');
+  tbl.innerHTML = "";
+  if (preview.length){
+    const headers = Object.keys(preview[0]);
+    const trh = document.createElement('tr');
+    headers.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    tbl.appendChild(trh);
+    preview.forEach(r=>{
+      const tr=document.createElement('tr');
+      headers.forEach(h=>{ const td=document.createElement('td'); td.textContent=r[h]||""; tr.appendChild(td); });
+      tbl.appendChild(tr);
+    });
+    byId('previewCard').style.display='block';
+  }
 });
 </script>
 </body>
 </html>
-
