@@ -41,14 +41,14 @@
     <div class="card">
       <label>1) Upload Names & Descriptions (CSV/TSV)</label>
       <input id="namesFile" type="file" accept=".csv,.tsv,.txt" />
-      <div class="hint">Needs: <span class="mono">NAME, SKU, SIZE, HS Code, EAN</span> (NAME may be blank on size rows — we will forward-fill it)</div>
+      <div class="hint">Needs: <span class="mono">NAME, SKU, SIZE, HS Code, EAN</span> (NAME may be blank on size rows — we forward-fill it)</div>
       <div id="namesStatus" class="hint"></div>
     </div>
 
     <div class="card">
       <label>2) Upload Range Tracker (CSV/TSV)</label>
       <input id="trackerFile" type="file" accept=".csv,.tsv,.txt" />
-      <div class="hint">Needs: <span class="mono">STYLE CODE, Line Description, COO, Sell Price</span></div>
+      <div class="hint">Needs: <span class="mono">STYLE CODE, Line Description, COO, Sell Price, Colour</span></div>
       <div id="trackerStatus" class="hint"></div>
     </div>
   </div>
@@ -80,15 +80,13 @@
 const byId = id => document.getElementById(id);
 const clean = s => (s??"").toString().replace(/\u00A0/g,' ').normalize("NFKC").trim();
 const cleanKey = s => clean(s).replace(/[‐–—−]/g,'-').replace(/\s+/g,' ').toUpperCase();
-  
-function parentFromSku(sku){
-  // Trim, remove leading P/R/T, strip trailing digits, tidy up any separators
-  return clean(sku)
-    .replace(/^[PRT]/i, '')   // remove Petite / Regular / Tall prefix
-    .replace(/\d+$/, '')      // remove trailing number
-    .replace(/[ _-]$/, '');   // tidy trailing dash/underscore
-}
 
+function parentFromSku(sku){
+  return clean(sku)
+    .replace(/^[PRT]/i, '')   // remove Petite/Regular/Tall prefix
+    .replace(/\d+$/, '')      // remove trailing number index
+    .replace(/[ _-]$/, '');   // tidy trailing separator
+}
 
 /* find a header by candidate names (case-insensitive/loose) */
 function findHeader(rows, candidates){
@@ -102,21 +100,12 @@ function findHeader(rows, candidates){
   return null;
 }
 
-// Strip a trailing variant like " (PETITE)" / " (REGULAR)" / " (TALL)" etc.
+// Remove one trailing parenthetical e.g. "NAME (PETITE)" -> "NAME"
 function stripVariantSuffix(name){
-  const s = clean(name);
-  // remove one trailing parenthetical e.g. "NAME (PETITE)" -> "NAME"
-  return s.replace(/\s*\([^)]+\)\s*$/,'').trim();
+  return clean(name).replace(/\s*\([^)]+\)\s*$/,'').trim();
 }
 
-// Return the variant label from NAME if present; e.g. "(PETITE)" -> "PETITE"
-function variantFromName(name){
-  const m = clean(name).match(/\(([^)]+)\)\s*$/);
-  return m ? m[1].trim().toUpperCase() : "";
-}
-
-
-/* forward-fill a column so every row has a value (handles merged cells exported from Excel) */
+/* forward-fill a column (handles merged-cell exports) */
 function ffillColumn(rows, col){
   if(!col) return;
   let last="";
@@ -126,57 +115,50 @@ function ffillColumn(rows, col){
   }
 }
 
-/* parse CSV or TSV automatically (simple but works for Excel CSV/TSV) */
-  // --- REPLACE your parseTable with this one ---
-  function parseTable(text){
-    text = (text||"").trim();
-    if (!text) return [];
+/* robust CSV/TSV parser (header-based delimiter + quote aware) */
+function parseTable(text){
+  text = (text||"").trim();
+  if (!text) return [];
+  const firstLine = text.split(/\r?\n/, 1)[0];
+  let delim = '\t';
+  const tabCount = (firstLine.match(/\t/g)||[]).length;
+  const commaCount = (firstLine.match(/,/g)||[]).length;
+  const semiCount = (firstLine.match(/;/g)||[]).length;
+  if (tabCount > 0) delim = '\t';
+  else if (commaCount >= semiCount) delim = ',';
+  else delim = ';';
 
-    // detect delimiter from header line only (prefer tab if present)
-    const firstLine = text.split(/\r?\n/, 1)[0];
-    let delim = '\t';
-    const tabCount = (firstLine.match(/\t/g)||[]).length;
-    const commaCount = (firstLine.match(/,/g)||[]).length;
-    const semiCount = (firstLine.match(/;/g)||[]).length;
-    if (tabCount > 0) delim = '\t';
-    else if (commaCount >= semiCount) delim = ',';
-    else delim = ';';
-
-    // quote-aware parse
-    const rows = [];
-    let row = [], field = "", i = 0, inQ = false;
-    const n = text.length;
-    while (i < n){
-      const c = text[i++];
-      if (c === '"'){
-        if (inQ && text[i] === '"'){ field += '"'; i++; } // escaped quote
-        else inQ = !inQ;
-      } else if (c === delim && !inQ){
-        row.push(field); field = "";
-      } else if ((c === '\n' || c === '\r') && !inQ){
-        // handle CRLF
-        if (c === '\r' && text[i] === '\n') i++;
-        row.push(field); field = "";
-        if (row.length) rows.push(row);
-        row = [];
-      } else {
-        field += c;
-      }
+  const rows = [];
+  let row = [], field = "", i = 0, inQ = false;
+  const n = text.length;
+  while (i < n){
+    const c = text[i++];
+    if (c === '"'){
+      if (inQ && text[i] === '"'){ field += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === delim && !inQ){
+      row.push(field); field = "";
+    } else if ((c === '\n' || c === '\r') && !inQ){
+      if (c === '\r' && text[i] === '\n') i++;
+      row.push(field); field = "";
+      if (row.length) rows.push(row);
+      row = [];
+    } else {
+      field += c;
     }
-    if (field.length || row.length){ row.push(field); rows.push(row); }
-
-    if (!rows.length) return [];
-
-    const header = rows.shift().map(h => clean(h));
-    return rows
-      .filter(r => r.some(x => clean(x) !== ""))
-      .map(r => {
-        const o = {};
-        header.forEach((h, idx) => { o[h] = clean(r[idx] ?? ""); });
-        return o;
-      });
   }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
 
+  if (!rows.length) return [];
+  const header = rows.shift().map(h => clean(h));
+  return rows
+    .filter(r => r.some(x => clean(x) !== ""))
+    .map(r => {
+      const o = {};
+      header.forEach((h, idx) => { o[h] = clean(r[idx] ?? ""); });
+      return o;
+    });
+}
 
 function readFileAsText(file){
   return new Promise((res,rej)=>{
@@ -200,12 +182,12 @@ function categoryFrom(t){
   t=(t||'').toLowerCase();
   if(/bag|purse|tote/.test(t)) return "SistersandSeekers : Accessories : Accessories : Bags";
   if(/hat|hats/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hats";
-  if(/blazer|jacket|coat/.test(t)) return "SistersandSeekers : Clothing : Outerwear : Blazers";
-  if(/trouser|pant|jean/.test(t)) return "SistersandSeekers : Clothing : Bottoms : Trousers";
+  if(/blazer|jacket|coat|mac/.test(t)) return "SistersandSeekers : Clothing : Outerwear : Blazers";
+  if(/legging|trouser|pant|jean/.test(t)) return "SistersandSeekers : Clothing : Bottoms : Trousers";
   if(/hoodie|sweater|jumper|cardi/.test(t)) return "SistersandSeekers : Clothing : Knitwear : Tops";
   if(/top|tee|shirt|polo|longsleeve/.test(t)) return "SistersandSeekers : Clothing : Tops : Tees";
   if(/sock|tight|hosiery/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hosiery";
-  return "SistersandSeekers: Accessories: Accessories: Accessories Other";
+  return "SistersandSeekers : Clothing : General";
 }
 
 /* ---------- state ---------- */
@@ -216,14 +198,11 @@ byId('namesFile').addEventListener('change', async e=>{
   const txt=await readFileAsText(f);
   namesRows=parseTable(txt);
 
-  // forward-fill NAME so every size row has the style name
+  // forward-fill NAME & HS so each size row carries them
   const NAMECOL = findHeader(namesRows, ["NAME"]);
+  const HSCOL   = findHeader(namesRows, ["HS Code","HSCode"]);
   ffillColumn(namesRows, NAMECOL);
-  
-  // NEW: forward-fill HS Code as well
-  const HSCOL = findHeader(namesRows, ["HS Code","HSCode"]);   // NEW
-  ffillColumn(namesRows, HSCOL);                                // NEW
-
+  ffillColumn(namesRows, HSCOL);
 
   byId('namesStatus').innerHTML=`Loaded <span class="ok">${namesRows.length}</span> rows (NAME & HS forward-filled)`;
 });
@@ -257,19 +236,19 @@ byId('genBtn').addEventListener('click', ()=>{
   const DESC2  = findHeader(trackerRows, ["Line Description","Description","Name"]);
   const COO2   = findHeader(trackerRows, ["COO","Country of Origin"]);
   const PRICE2 = findHeader(trackerRows, ["Sell Price","RRP","Retail","Retail Price","Price"]);
+  const COLOR2 = findHeader(trackerRows, ["Colour","Color","COLOUR"]);
 
   if(!NAME || !SKU){ byId('log').innerHTML=`<span class="err">Missing NAME or SKU in Names CSV.</span>`; return; }
   if(!STYLE2){ byId('log').innerHTML=`<span class="err">Missing STYLE CODE in Tracker CSV.</span>`; return; }
 
-  // index tracker by STYLE CODE (both raw and base-without-variant)
+  // index tracker by STYLE CODE (raw + base-without-variant)
   const tIndex = new Map(), rightKeys = new Set();
   for(const r of trackerRows){
-    const raw = cleanKey(r[STYLE2]);
+    const raw  = cleanKey(r[STYLE2]);
     const base = cleanKey(stripVariantSuffix(r[STYLE2]));
     if(raw){ tIndex.set(raw, r); rightKeys.add(raw); }
     if(base){ tIndex.set(base, r); rightKeys.add(base); }
   }
-
 
   // diagnostics
   const leftKeys=new Set();
@@ -281,37 +260,31 @@ byId('genBtn').addEventListener('click', ()=>{
     `Left-only: ${leftOnly.length} ${leftOnly.length? 'e.g. '+leftOnly.slice(0,5).join(', ') : ''}<br>`+
     `Right-only: ${rightOnly.length} ${rightOnly.length? 'e.g. '+rightOnly.slice(0,5).join(', ') : ''}`;
 
-  // build output (strict inner join; skip rows lacking SKU)
+  // build output (strict inner join; skip rows lacking SKU or bad SKU)
   const out=[];
   let kept=0, skipped=0, missing=0;
 
   for(const r of namesRows){
     const sku  = clean(r[SKU]);
     const name = clean(r[NAME]);
-    if(!sku || !name){ skipped++; continue; }
+    if(!sku || !name || /\s/.test(sku)){ skipped++; continue; } // guard: skip obviously bad SKU (with spaces)
 
-    // 1) Try exact match on NAME
+    // exact match, then base match
     let t = tIndex.get(cleanKey(name));
-
-    // 2) Fallback: match on base style without "(PETITE)/(REGULAR)/(TALL)"
     if(!t){
       const baseName = stripVariantSuffix(name);
       t = tIndex.get(cleanKey(baseName));
     }
     if(!t){ missing++; continue; }
 
-    const size = clean(r[SIZE]);
-    const ean  = clean(r[EAN]);
-    const hs   = clean(r[HS]);
-    const coo  = clean(t[COO2] || r[COO1]);
-    const price= clean(t[PRICE2] || r[RRP1]);
-
-    // Prefer the tracker line description; fallback to base name (without variant)
+    const size   = clean(r[SIZE]);
+    const ean    = clean(r[EAN]);
+    const hs     = clean(r[HS]) || clean(t["HS Code"] || t["HSCode"]);
+    const coo    = clean(t[COO2] || r[COO1]);
+    const price  = clean(t[PRICE2] || r[RRP1]);
     const baseName = stripVariantSuffix(name);
-    const desc = clean(t[DESC2] || r[DESC1] || baseName);
-
-    // Extract variant label (PETITE/REGULAR/TALL) from names file
-    const variant = variantFromName(name);  // "" if none
+    const colour = COLOR2 ? clean(t[COLOR2]) : "";
+    const desc     = clean(t[DESC2] || r[DESC1] || baseName);
 
     const partDesc = size && size.toUpperCase()!=="ONE SIZE" ? `${desc} ${size}` : desc;
     const parentMatrix = size ? parentFromSku(sku) : "";
@@ -338,16 +311,13 @@ byId('genBtn').addEventListener('click', ()=>{
       "incomeaccount": "40001 Sales : Shopify Sales",
       "assetaccount": "12030 Inventory : Finished Goods",
 
-      // Matrix fields
       "Matrix Type": size ? "Child Matrix Item" : "Standalone Item",
       "Parent Matrix item": parentMatrix,
-      // Use Matrix - Colour as the second dimension to carry PETITE/REGULAR/TALL
-      "Matrix - Colour": variant,           // e.g., "PETITE", "REGULAR", "TALL" or ""
+      "Matrix - Colour": colour,   // <-- colour ONLY from tracker
       "Matrix Size": size
     });
     kept++;
   }
-
 
   // add Matrix Parent rows if requested
   if(byId('makeParents').checked){
@@ -403,14 +373,18 @@ byId('genBtn').addEventListener('click', ()=>{
   tbl.innerHTML = "";
   if (preview.length){
     const headers = Object.keys(preview[0]);
+    const thead = document.createElement('thead');
     const trh = document.createElement('tr');
     headers.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
-    tbl.appendChild(trh);
+    thead.appendChild(trh);
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
     preview.forEach(r=>{
       const tr=document.createElement('tr');
       headers.forEach(h=>{ const td=document.createElement('td'); td.textContent=r[h]||""; tr.appendChild(td); });
-      tbl.appendChild(tr);
+      tbody.appendChild(tr);
     });
+    tbl.appendChild(tbody);
     byId('previewCard').style.display='block';
   }
 });
