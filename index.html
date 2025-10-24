@@ -178,17 +178,126 @@ function toCSV(rows){
   return '\uFEFF'+lines.join('\n');
 }
 
-function categoryFrom(t){
-  t=(t||'').toLowerCase();
-  if(/bag|purse|tote/.test(t)) return "SistersandSeekers : Accessories : Accessories : Bags";
-  if(/hat|hats/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hats";
-  if(/blazer|jacket|coat|mac/.test(t)) return "SistersandSeekers : Clothing : Outerwear : Blazers";
-  if(/legging|trouser|pant|jean/.test(t)) return "SistersandSeekers : Clothing : Bottoms : Trousers";
-  if(/hoodie|sweater|jumper|cardi/.test(t)) return "SistersandSeekers : Clothing : Knitwear : Tops";
-  if(/top|tee|shirt|polo|longsleeve/.test(t)) return "SistersandSeekers : Clothing : Tops : Tees";
-  if(/sock|tight|hosiery/.test(t)) return "SistersandSeekers : Accessories : Accessories : Hosiery";
-  return "SistersandSeekers : Clothing : General";
+function categoryFrom(t, brand = "Sisters and Seekers"){
+  t = (t||'').toLowerCase();
+
+  // Safety: ensure correct brand formatting
+  brand = /kin/i.test(brand) ? "Brother & Kin" : "Sisters and Seekers";
+
+  // ACCESSORIES
+  if(/bag|purse|tote/.test(t))
+    return `${brand} : Accessories : Accessories : Bags`;
+  if(/hat|beanie|cap/.test(t))
+    return `${brand} : Accessories : Accessories : Hats`;
+  if(/hair|scrunchie|clip|claw/.test(t))
+    return `${brand} : Accessories : Accessories : Hair Accessories`;
+  if(/tight|hosiery|stocking/.test(t))
+    return `${brand} : Accessories : Accessories : Hoisery`;
+  if(/jewel|necklace|bracelet|earring|ring|chain/.test(t))
+    return `${brand} : Accessories : Accessories : Jewellery`;
+  if(/sunglass|shades/.test(t))
+    return `${brand} : Accessories : Accessories : Sunglasses`;
+  if(/sock/.test(t))
+    return `${brand} : Accessories : Accessories : Socks`;
+  if(/scarf|glove|snood|balaclava/.test(t))
+    return `${brand} : Accessories : Accessories : Winter Accessories`;
+
+  // BOTTOMS
+  if(/skirt/.test(t))
+    return `${brand} : Clothing : Bottoms : Skirts`;
+  if(/shorts?/.test(t))
+    return `${brand} : Clothing : Bottoms : Shorts`;
+  if(/sweatpant|jogger|track pant|wide leg/.test(t))
+    return `${brand} : Clothing : Bottoms : Sweatpants`;
+  if(/legging/.test(t))
+    return `${brand} : Clothing : Bottoms : Leggings`;
+  if(/trouser|pant|(cargo)|chino/.test(t))
+    return `${brand} : Clothing : Bottoms : Trousers`;
+
+  // DRESSES & JEANS (note: Brother & Kin has no dresses, fallback later still safe)
+  if(/dress/.test(t))
+    return `${brand} : Clothing : Dresses : Dresses`;
+  if(/jean|denim/.test(t))
+    return `${brand} : Clothing : Jeans : Jeans`;
+
+  // KNITWEAR
+  if(/cardi/.test(t))
+    return `${brand} : Clothing : Knitwear : Cardigans`;
+  if(/knitted hoodie/.test(t))
+    return `${brand} : Clothing : Knitwear : Knitted Hoodies`;
+  if(/jumper|sweater|knit/.test(t))
+    return `${brand} : Clothing : Knitwear : Jumpers`;
+
+  // NIGHTWEAR
+  if(/pyjama set/.test(t))
+    return `${brand} : Clothing : Nightwear : Pyjama Set`;
+  if(/pyjama top/.test(t))
+    return `${brand} : Clothing : Nightwear : Pyjama Top`;
+  if(/pyjama bottom/.test(t))
+    return `${brand} : Clothing : Nightwear : Pyjama Bottoms`;
+  if(/robe|dressing gown/.test(t))
+    return `${brand} : Clothing : Nightwear : Robe`;
+
+  // OUTERWEAR
+  if(/blazer/.test(t))
+    return `${brand} : Clothing : Outerwear : Blazers`;
+  if(/coat|parka|trench|mac/.test(t))
+    return `${brand} : Clothing : Outerwear : Coats`;
+  if(/gilet|vest/.test(t))
+    return `${brand} : Clothing : Outerwear : Gilets`;
+  if(/jacket|bomber|puffer|windbreaker/.test(t))
+    return `${brand} : Clothing : Outerwear : Jackets`;
+
+  // OUTFITS
+  if(/all in one|jumpsuit|playsuit|unitard|romper/.test(t))
+    return `${brand} : Clothing : Outfits : All in Ones`;
+
+  // SWIMWEAR
+  if(brand === "Brother & Kin" && /swim short|boardshort/.test(t))
+    return `Brother & Kin : Clothing : Swimwear : Swim Shorts`;
+  if(/bikini set|swim set/.test(t))
+    return `${brand} : Clothing : Swimwear : Sets`;
+  if(/bikini bottom|swim brief/.test(t))
+    return `${brand} : Clothing : Swimwear : Bikini Bottom`;
+  if(/bikini top|swim top/.test(t))
+    return `${brand} : Clothing : Swimwear : Bikini Top`;
+  if(/swimsuit|one piece/.test(t))
+    return `${brand} : Clothing : Swimwear : Swimsuit`;
+
+  // TOPS
+  if(/hoodie|zip up/.test(t))
+    return `${brand} : Clothing : Tops : Hoodies`;
+  if(/polo/.test(t))
+    return `${brand} : Clothing : Tops : Polos`;
+  if(/shirt|button down|oxford/.test(t))
+    return `${brand} : Clothing : Tops : Shirts`;
+  if(/sweater|jumper|crew neck|crewneck/.test(t))
+    return `${brand} : Clothing : Tops : Sweaters`;
+  if(/tee|t-shirt|longsleeve|top|ls/.test(t))
+    return `${brand} : Clothing : Tops : T-Shirts`;
+
+  // UNDERWEAR
+  if(/boxer/.test(t))
+    return `${brand} : Clothing : Underwear : Boxers`;
+  if(/bra|bralette/.test(t))
+    return `${brand} : Clothing : Underwear : Bra`;
+  if(/knicker|panty|thong|brief/.test(t))
+    return `${brand} : Clothing : Underwear : Knicker`;
+
+  // FOOTWEAR
+  if(/boot/.test(t))
+    return `${brand} : Footwear : Footwear : Boots`;
+  if(/sandal|slider|flip flop/.test(t))
+    return `${brand} : Footwear : Footwear : Sandals`;
+  if(/trainer|sneaker|runner/.test(t))
+    return `${brand} : Footwear : Footwear : Trainers`;
+  if(/shoe|loafer|flat|heel/.test(t))
+    return `${brand} : Footwear : Footwear : Shoes`;
+
+  // FALLBACK
+  return `***Add hierarchy***`;
 }
+
 
 /* ---------- state ---------- */
 let namesRows=[], trackerRows=[];
