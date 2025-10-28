@@ -182,7 +182,7 @@ function categoryFrom(t, brand = "Sisters and Seekers"){
   t = (t||'').toLowerCase();
 
   // Safety: ensure correct brand formatting
-  brand = /kin/i.test(brand) ? "Brother & Kin" : "Sisters and Seekers";
+  brand = /kin/i.test(brand) ? "Brother & Kin" : "SistersandSeekers";
 
   // ACCESSORIES
   if(/bag|purse|tote/.test(t))
@@ -409,17 +409,32 @@ byId('genBtn').addEventListener('click', ()=>{
       "CountryOfManufacture": coo,
       "UPC": ean,
       "unit type": "Each",
+      "stock unit - pair/pack/": "",
+      "purchase unit pair/pack": "",
+      "Sales unit - pair/pack/": "",
       "subsid": "Sisters & Seekers Limited",
-      "Class": "Product",
-      "Department": "SSUK Warehouse : SSUK - Ecomm",
+      "Class": "",
+      "Department": "Product",
+      "Location": "SSUK Warehouse : SSUK - Ecomm", 
+      "children true/false": "",
+      "salesDescription": "",
       "Sale Price": price,
       "Item - Pricing 1 : Currency (Req)": "GBP",
       "Item - Pricing 1 : Price Level (Req)": "RRP",
+      "Item - Pricing 1 : Quantity (Req)" : "",
       "costing method": "FIFO",
+      "Cost": "";
+      "Drop Ship": "",
+      "spec order true/false": "",
+      "OrderUp toLevel": "",
+      "re-order multi": "",
+      "reordeer": "",
+      "Vendor": "",
+      "Prefered Vendor": "",
+      "Purchase price": "",
       "cogsaccount": "50000 Cost of Goods Sold",
       "incomeaccount": "40001 Sales : Shopify Sales",
       "assetaccount": "12030 Inventory : Finished Goods",
-
       "Matrix Type": size ? "Child Matrix Item" : "Standalone Item",
       "Parent Matrix item": parentMatrix,
       "Matrix - Colour": colour,   // <-- colour ONLY from tracker
