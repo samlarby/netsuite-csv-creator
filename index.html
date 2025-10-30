@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ERP Upload Builder (Matrix + FFill)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+<header class="wrap">
+  <h1>🧩 ERP Upload Builder — <span class="pill">NAME ↔ STYLE CODE</span></h1>
+  <div class="hint">Upload <b>names_and_descriptions.csv</b> and <b>range_tracker.csv</b>. Click Generate to download <b>erp_upload.csv</b>.</div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <div class="card">
+      <label>1) Upload Names & Descriptions (CSV/TSV)</label>
+      <input id="namesFile" type="file" accept=".csv,.tsv,.txt" />
+      <div class="hint">Needs: <span class="mono">NAME, SKU, SIZE, HS Code, EAN</span> (NAME may be blank on size rows — we forward-fill it)</div>
+      <div id="namesStatus" class="hint"></div>
+    </div>
+
+    <div class="card">
+      <label>2) Upload Range Tracker (CSV/TSV)</label>
+      <input id="trackerFile" type="file" accept=".csv,.tsv,.txt" />
+      <div class="hint">Needs: <span class="mono">STYLE CODE, Line Description, COO, Sell Price, Colour</span></div>
+      <div id="trackerStatus" class="hint"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="row">
+      <button id="genBtn">🚀 Generate ERP CSV</button>
+      <label style="text-transform:none">
+        <input type="checkbox" id="makeParents" checked />
+        Also create <b>Matrix Parent</b> rows
+      </label>
+      <a id="dlLink" download="erp_upload.csv" class="pill" style="display:none">⬇️ Download erp_upload.csv</a>
+    </div>
+    <div id="log" class="hint"></div>
+    <details style="margin-top:10px">
+      <summary>Match diagnostics</summary>
+      <div id="diag" class="hint" style="margin-top:8px"></div>
+    </details>
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <label>Preview (first 20 rows)</label>
+    <div style="overflow:auto"><table id="previewTable"></table></div>
+  </div>
+</div>
+</body>
+<script src="assets/js/index.js"></script>
+</html>
